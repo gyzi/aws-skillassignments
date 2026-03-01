@@ -24,7 +24,7 @@ resource "aws_cloudwatch_log_group" "dispatcher" {
 # ── Security Group (egress-only – Fargate needs outbound) ────
 resource "aws_security_group" "ecs_tasks" {
   name        = "app-stack-ecs-tasks-${local.region_suffix}"
-  description = "Fargate tasks – allow all egress for AWS API calls"
+  description = "Fargate tasks - allow all egress for AWS API calls"
   vpc_id      = aws_vpc.app.id
 
   egress {

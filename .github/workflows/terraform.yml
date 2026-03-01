@@ -1,0 +1,194 @@
+# ──────────────────────────────────────────────────────────────
+# CI/CD – Terraform Lint → Validate → Plan → Apply → Test
+# ──────────────────────────────────────────────────────────────
+#
+# Secrets required in GitHub repository settings:
+#   AWS_ROLE_ARN          – IAM role ARN for GitHub OIDC (preferred)
+#   --- OR (fallback) ---
+#   AWS_ACCESS_KEY_ID     – IAM access key
+#   AWS_SECRET_ACCESS_KEY – IAM secret key
+#
+#   TF_VAR_email          – email for Cognito / SNS payload
+#   TF_VAR_github_repo    – GitHub repo URL for SNS payload
+#   TF_VAR_sns_topic_arn  – SNS verification topic
+#   COGNITO_USERNAME      – Cognito test user name
+#   COGNITO_PASSWORD      – Cognito test user password
+# ──────────────────────────────────────────────────────────────
+
+name: Terraform CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write   # for OIDC
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.11.0"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # 1. Lint – format check
+  # ────────────────────────────────────────────────────────────
+  lint:
+    name: Terraform Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+  # ────────────────────────────────────────────────────────────
+  # 2. Validate – syntax & reference check
+  # ────────────────────────────────────────────────────────────
+  validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ────────────────────────────────────────────────────────────
+  # 3. Plan – preview changes (PRs only)
+  # ────────────────────────────────────────────────────────────
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -input=false -no-color -out=tfplan
+        continue-on-error: true
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📋
+            \`\`\`
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            *Triggered by @${{ github.actor }} on \`${{ github.event.pull_request.head.ref }}\`*`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output,
+            });
+
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  # ────────────────────────────────────────────────────────────
+  # 4. Apply – deploy (main branch only)
+  # ────────────────────────────────────────────────────────────
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production          # requires manual approval in GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve
+
+  # ────────────────────────────────────────────────────────────
+  # 5. Integration Test – after apply
+  # ────────────────────────────────────────────────────────────
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install boto3 requests
+
+      - name: Run integration tests
+        env:
+          COGNITO_CLIENT_ID: ${{ steps.outputs.outputs.client_id }}
+          COGNITO_USERNAME: ${{ secrets.COGNITO_USERNAME }}
+          COGNITO_PASSWORD: ${{ secrets.COGNITO_PASSWORD }}
+        run: |
+          export API_ENDPOINT_US_EAST=$(terraform output -raw api_endpoint_us_east)
+          export API_ENDPOINT_EU_WEST=$(terraform output -raw api_endpoint_eu_west)
+          export COGNITO_CLIENT_ID=$(terraform output -raw cognito_user_pool_client_id)
+          python test_endpoints.py

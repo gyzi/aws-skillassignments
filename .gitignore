@@ -8,10 +8,21 @@ override.tf.json
 *.tfvars
 !terraform.tfvars.example
 .terraform.lock.hcl
+tfplan
+
+# Lambda build artefacts
+modules/app_stack/lambda/.build/
+modules/app_stack/lambda/*.zip
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
 
 # Local env files
 .env
 
-# IDE/editor
+# IDE / editor
 .vscode/
+.idea/
 *.log

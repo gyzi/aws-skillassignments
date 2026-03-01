@@ -1,5 +1,13 @@
+# ──────────────────────────────────────────────────────────────
+# Terraform & Provider Configuration
+# ──────────────────────────────────────────────────────────────
+# Authentication: use AWS_PROFILE env var or aws configure.
+# Do NOT hardcode credentials in .tf or .tfvars files.
+# ──────────────────────────────────────────────────────────────
+
 terraform {
-  required_version = ">= 1.11.0"
+  required_version = ">= 1.5.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,23 +20,32 @@ terraform {
   }
 }
 
+# ── Primary region (us-east-1) – also hosts Cognito ─────────
 provider "aws" {
-  alias      = "us_east_1"
-  region     = var.aws_region_us_east
+  alias   = "us_east_1"
+  region  = var.aws_region_us_east
+  profile = var.aws_profile != "" ? var.aws_profile : null
 
-  # Prefer profile or env vars — provide access/secret/profile via variables
-  # If a variable is empty, we pass null so the AWS provider falls back to
-  # the standard credential chain (env vars, shared credentials file, etc.).
-  profile    = var.aws_profile != "" ? var.aws_profile : null
-  access_key = var.aws_access_key != "" ? var.aws_access_key : null
-  secret_key = var.aws_secret_key != "" ? var.aws_secret_key : null
+  default_tags {
+    tags = {
+      Project     = "ai-video-analytics"
+      ManagedBy   = "terraform"
+      Environment = var.environment
+    }
+  }
 }
 
+# ── Secondary region (eu-west-1) ────────────────────────────
 provider "aws" {
-  alias      = "eu_west_1"
-  region     = var.aws_region_eu_west
+  alias   = "eu_west_1"
+  region  = var.aws_region_eu_west
+  profile = var.aws_profile != "" ? var.aws_profile : null
 
-  profile    = var.aws_profile != "" ? var.aws_profile : null
-  access_key = var.aws_access_key != "" ? var.aws_access_key : null
-  secret_key = var.aws_secret_key != "" ? var.aws_secret_key : null
+  default_tags {
+    tags = {
+      Project     = "ai-video-analytics"
+      ManagedBy   = "terraform"
+      Environment = var.environment
+    }
+  }
 }

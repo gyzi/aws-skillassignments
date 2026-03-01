@@ -1,0 +1,21 @@
+# Example terraform.tfvars — copy to terraform.tfvars and fill in your values.
+# ⚠️  NEVER commit real credentials. Use AWS_PROFILE or environment variables.
+
+# AWS CLI profile (from ~/.aws/credentials)
+aws_profile = "myprofile"
+
+# Regions (defaults are fine for most setups)
+aws_region_us_east = "us-east-1"
+aws_region_eu_west = "eu-west-1"
+
+# Environment label
+environment = "dev"
+
+# Your email (used for Cognito test user + SNS verification payload)
+email = "your_email@example.com"
+
+# Your GitHub repo URL (included in SNS verification payload)
+github_repo = "https://github.com/gyzi/aws-assessment"
+
+# SNS verification topic ARN
+sns_topic_arn = "arn:aws:sns:us-east-1:697502032757:Candidate-Verification-Topic"

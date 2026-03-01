@@ -12,7 +12,7 @@ This README documents how to use the module, how to provide AWS credentials safe
 
 Inputs
 - `cognito_user_pool_arn` (string) — ARN of an existing Cognito user pool (kept for reference/permissions).
-- `region_name` (string) — region where the module will create resources.
+- `region` (string) — region where the module will create resources.
 - `sns_topic_arn` (string) — ARN of the SNS topic to which `/greet` will publish a JSON message.
 
 Outputs
@@ -44,7 +44,7 @@ Example `terraform.tfvars` (DO NOT commit with real keys):
 
 ```
 aws_profile = "myprofile"
-region_name = "us-east-1"
+region = "us-east-1"
 sns_topic_arn = "arn:aws:sns:us-east-1:123456789012:UnleashTopic"
 ```
 

@@ -3,7 +3,7 @@ variable "cognito_user_pool_arn" {
   type        = string
 }
 
-variable "region_name" {
+variable "region" {
   description = "Region name where resources will be created"
   type        = string
 }

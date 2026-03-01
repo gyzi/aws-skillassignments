@@ -30,7 +30,7 @@ data "archive_file" "dispatch_zip" {
 }
 
 resource "aws_iam_role" "lambda_role" {
-  name = "app_stack_lambda_role-${replace(var.region_name, "-", "")}" 
+  name = "app_stack_lambda_role-${replace(var.region, "-", "")}" 
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -47,7 +47,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "app_stack_lambda_policy-${replace(var.region_name, "-", "")}" 
+  name        = "app_stack_lambda_policy-${replace(var.region, "-", "")}" 
   description = "Permissions for Lambda to write to DynamoDB and publish to SNS and write CloudWatch logs"
 
   policy = jsonencode({
@@ -88,7 +88,7 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
 
 resource "aws_lambda_function" "greet" {
   filename         = data.archive_file.greet_zip.output_path
-  function_name    = "app_stack_greet_${replace(var.region_name, "-", "") }"
+  function_name    = "app_stack_greet_${replace(var.region, "-", "") }"
   role             = aws_iam_role.lambda_role.arn
   handler          = "greet.lambda_handler"
   runtime          = "python3.11"
@@ -98,14 +98,14 @@ resource "aws_lambda_function" "greet" {
     variables = {
       DDB_TABLE = aws_dynamodb_table.greeting_logs.name
       SNS_ARN   = var.sns_topic_arn
-      REGION    = var.region_name
+  REGION    = var.region
     }
   }
 }
 
 resource "aws_lambda_function" "dispatch" {
   filename         = data.archive_file.dispatch_zip.output_path
-  function_name    = "app_stack_dispatch_${replace(var.region_name, "-", "") }"
+  function_name    = "app_stack_dispatch_${replace(var.region, "-", "") }"
   role             = aws_iam_role.lambda_role.arn
   handler          = "dispatch.lambda_handler"
   runtime          = "python3.11"
@@ -113,7 +113,7 @@ resource "aws_lambda_function" "dispatch" {
 }
 
 resource "aws_apigatewayv2_api" "http_api" {
-  name          = "app-stack-http-api-${replace(var.region_name, "-", "") }"
+  name          = "app-stack-http-api-${replace(var.region, "-", "") }"
   protocol_type = "HTTP"
 }
 
@@ -156,7 +156,7 @@ resource "aws_lambda_permission" "apigw_invoke_greet" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.greet.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region_name}:*:${aws_apigatewayv2_api.http_api.id}/*/POST/greet"
+  source_arn    = "arn:aws:execute-api:${var.region}:*:${aws_apigatewayv2_api.http_api.id}/*/POST/greet"
 }
 
 resource "aws_lambda_permission" "apigw_invoke_dispatch" {
@@ -164,5 +164,5 @@ resource "aws_lambda_permission" "apigw_invoke_dispatch" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.dispatch.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region_name}:*:${aws_apigatewayv2_api.http_api.id}/*/POST/dispatch"
+  source_arn    = "arn:aws:execute-api:${var.region}:*:${aws_apigatewayv2_api.http_api.id}/*/POST/dispatch"
 }

@@ -69,6 +69,13 @@ resource "aws_sns_topic" "notifications" {
   tags = { Name = "app-stack-notifications" }
 }
 
+resource "aws_sns_topic_subscription" "email" {
+  provider  = aws.us_east_1
+  topic_arn = aws_sns_topic.notifications.arn
+  protocol  = "email"
+  endpoint  = var.email
+}
+
 # ╔══════════════════════════════════════════════════════════╗
 # ║  3. Application Stack – us-east-1                        ║
 # ╚══════════════════════════════════════════════════════════╝

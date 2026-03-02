@@ -45,25 +45,49 @@ Terraform infrastructure for a **multi-region serverless API** on AWS with centr
 | Python    | ≥ 3.10   | Integration test script              |
 | pip       | latest   | Install `boto3` and `requests`       |
 
+### IAM Permissions
+
+The AWS IAM user needs `AdministratorAccess` or permissions for: **Cognito**, **Lambda**, **API Gateway v2**, **DynamoDB**, **ECS/Fargate**, **IAM**, **VPC/EC2**, **CloudWatch Logs**, **SNS**, and **S3**.
+
 ---
 
-## Setup
+## Deployment
 
-### Step 1 – Configure AWS Credentials
+You can deploy **locally from the CLI** or **automatically via GitHub Actions CI/CD**. Both methods share the same remote state in S3.
+
+### One-Time Setup (required for both methods)
+
+**1. Create the remote state backend** (S3 bucket + DynamoDB lock table):
 
 ```powershell
-# Configure a named AWS CLI profile
+aws s3api create-bucket --bucket YOUR_BUCKET_NAME --region us-east-1
+aws s3api put-bucket-versioning --bucket YOUR_BUCKET_NAME --versioning-configuration Status=Enabled
+aws dynamodb create-table --table-name YOUR_LOCK_TABLE `
+  --attribute-definitions AttributeName=LockID,AttributeType=S `
+  --key-schema AttributeName=LockID,KeyType=HASH `
+  --billing-mode PAY_PER_REQUEST --region us-east-1
+```
+
+---
+
+### Option A – Deploy Locally (CLI)
+
+**What you need:** AWS CLI credentials configured, `terraform.tfvars` file.
+
+**1. Configure AWS credentials:**
+
+```powershell
 aws configure --profile myprofile
 $env:AWS_PROFILE = "myprofile"
 ```
 
-### Step 2 – Set Variables
+**2. Create `terraform.tfvars`:**
 
 ```powershell
 Copy-Item terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars` — all three application variables are **required** (no defaults):
+Edit `terraform.tfvars`:
 
 ```hcl
 aws_profile   = "myprofile"
@@ -72,19 +96,21 @@ github_repo   = "https://github.com/your-org/your-repo"
 sns_topic_arn = "arn:aws:sns:us-east-1:ACCOUNT_ID:TOPIC_NAME"
 ```
 
-### Step 3 – Deploy Infrastructure
+**3. Init, plan, and apply:**
 
 ```powershell
-terraform init
-terraform fmt -check          # lint
-terraform validate            # syntax check
-terraform plan -out=tfplan    # preview changes
-terraform apply tfplan        # deploy
+terraform init `
+  -backend-config="bucket=YOUR_BUCKET_NAME" `
+  -backend-config="key=terraform.tfstate" `
+  -backend-config="region=us-east-1" `
+  -backend-config="dynamodb_table=YOUR_LOCK_TABLE" `
+  -backend-config="encrypt=true"
+
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-### Step 4 – Set Cognito Test User Password
-
-After the first deploy, set a permanent password for the test user:
+**4. Set Cognito test user password (first deploy only):**
 
 ```powershell
 aws cognito-idp admin-set-user-password `
@@ -94,6 +120,47 @@ aws cognito-idp admin-set-user-password `
   --permanent `
   --region us-east-1
 ```
+
+**5. Destroy (when done):**
+
+```powershell
+terraform destroy -auto-approve
+```
+
+---
+
+### Option B – Deploy via GitHub Actions CI/CD
+
+**What you need:** GitHub Secrets configured in your repo settings.
+
+The pipeline runs **automatically** on push/PR to `main`. You can also **manually trigger** apply or destroy from the Actions tab.
+
+**1. Add these secrets** in **Settings → Secrets and variables → Actions**:
+
+| Secret                    | Value                                       |
+|---------------------------|---------------------------------------------|
+| `AWS_ACCESS_KEY_ID`       | IAM access key                              |
+| `AWS_SECRET_ACCESS_KEY`   | IAM secret key                              |
+| `TF_BACKEND_BUCKET`       | Your S3 state bucket name                   |
+| `TF_BACKEND_LOCK_TABLE`   | Your DynamoDB lock table name               |
+| `TF_VAR_email`            | Your email address                          |
+| `TF_VAR_github_repo`      | Your GitHub repo URL                        |
+| `TF_VAR_sns_topic_arn`    | SNS topic ARN                               |
+| `COGNITO_USERNAME`        | `testuser`                                  |
+| `COGNITO_PASSWORD`        | Password for the test user                  |
+
+**2. Pipeline stages:**
+
+| Stage        | Trigger            | What it does                                        |
+|--------------|--------------------|-----------------------------------------------------|
+| **Lint**     | Every push/PR      | `terraform fmt -check -recursive`                   |
+| **Validate** | Every push/PR      | `terraform init && terraform validate`              |
+| **Plan**     | PR only            | `terraform plan` — posts output as PR comment       |
+| **Apply**    | Push to main       | `terraform apply -auto-approve`                     |
+| **Test**     | After apply        | Runs `test_endpoints.py` against live endpoints     |
+| **Destroy**  | Manual only        | `terraform destroy -auto-approve`                   |
+
+**3. Manual trigger:** Go to **Actions → Terraform CI/CD → Run workflow** and select `apply` or `destroy`.
 
 ---
 
@@ -141,12 +208,9 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 .
 ├── main.tf                         # Cognito + module instances + outputs
 ├── variables.tf                    # Root input variables
-├── providers.tf                    # Provider config (us-east-1, eu-west-1)
+├── providers.tf                    # Provider & S3 backend config
 ├── terraform.tfvars.example        # Example variable values
 ├── test_endpoints.py               # Integration test script
-│
-├── bootstrap/                      # (Optional) OIDC setup for GitHub Actions
-│   └── main.tf                     # IAM OIDC provider + role
 │
 ├── modules/app_stack/              # Reusable per-region module
 │   ├── variables.tf                # Module inputs
@@ -178,40 +242,11 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 | `github_repo`        | **Yes**  | —              | GitHub repo URL for SNS payload        |
 | `sns_topic_arn`      | **Yes**  | —              | SNS topic ARN for verification messages|
 
-## CI/CD Pipeline
-
-The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes, PRs to `main`, and manual triggers. It authenticates to AWS using **static credentials** stored as GitHub Secrets.
-
-| Stage        | Trigger        | What it does                                            |
-|--------------|----------------|---------------------------------------------------------|
-| **Lint**     | Always         | `terraform fmt -check -recursive`                       |
-| **Validate** | Always         | `terraform init && terraform validate`                  |
-| **Plan**     | PR only        | `terraform plan` — posts output as PR comment           |
-| **Apply**    | Main push / manual | `terraform apply -auto-approve` (manual approval gate)  |
-| **Test**     | After apply    | Runs `test_endpoints.py` against live endpoints         |
-| **Destroy**  | Manual only    | `terraform destroy -auto-approve` (manual approval gate)|
-
-> **Manual trigger:** Go to **Actions → Terraform CI/CD → Run workflow** and select `apply` or `destroy` from the dropdown.
-
-### Required GitHub Secrets
-
-Add these in your repo **Settings → Secrets and variables → Actions**:
-
-| Secret                  | Description                                 |
-|-------------------------|---------------------------------------------|
-| `AWS_ACCESS_KEY_ID`     | IAM access key for your AWS user            |
-| `AWS_SECRET_ACCESS_KEY` | IAM secret key for your AWS user            |
-| `COGNITO_USERNAME`      | Test user username (e.g. `testuser`)        |
-| `COGNITO_PASSWORD`      | Test user password                          |
-| `TF_VAR_email`          | Email for SNS payload                       |
-| `TF_VAR_github_repo`    | GitHub repo URL for SNS payload             |
-| `TF_VAR_sns_topic_arn`  | SNS topic ARN                               |
-
 ## Security Notes
 
 - **Never commit credentials.** Use `AWS_PROFILE` or environment variables.
 - `terraform.tfvars` is gitignored — only `.example` is tracked.
-- Terraform state is stored in an encrypted S3 bucket (`aws-skillassignment-tfstate`) with DynamoDB state locking (`aws-skillassignment-tflock`).
+- Terraform state is stored in an encrypted S3 bucket with DynamoDB state locking.
 - API Gateway routes are protected by Cognito JWT authorizer — unauthenticated requests receive `401 Unauthorized`.
 
 ## Cost Optimisation
@@ -220,11 +255,3 @@ Add these in your repo **Settings → Secrets and variables → Actions**:
 - **DynamoDB PAY_PER_REQUEST** — zero cost at rest.
 - **Lambda** — billed per invocation only.
 - **Fargate** — tasks run on-demand; no idle cost.
-
-## Cleanup
-
-```powershell
-terraform destroy -auto-approve
-```
-
-This will tear down **all** resources in both regions.

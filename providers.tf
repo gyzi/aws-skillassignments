@@ -19,13 +19,9 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket         = "aws-skillassignment-tfstate"
-    key            = "terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "aws-skillassignment-tflock"
-    encrypt        = true
-  }
+  # Backend configuration is supplied via -backend-config flags at init time.
+  # See README "Step 4 – Deploy Infrastructure" for the full init command.
+  backend "s3" {}
 }
 
 # ── Primary region (us-east-1) – also hosts Cognito ─────────

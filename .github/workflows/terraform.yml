@@ -41,6 +41,8 @@ env:
   TF_VAR_email: ${{ secrets.TF_VAR_email }}
   TF_VAR_github_repo: ${{ secrets.TF_VAR_github_repo }}
   TF_VAR_sns_topic_arn: ${{ secrets.TF_VAR_sns_topic_arn }}
+  TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
+  TF_BACKEND_LOCK_TABLE: ${{ secrets.TF_BACKEND_LOCK_TABLE }}
 
 jobs:
   # ────────────────────────────────────────────────────────────
@@ -81,7 +83,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$TF_BACKEND_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_BACKEND_LOCK_TABLE" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Validate
         run: terraform validate
@@ -109,7 +117,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$TF_BACKEND_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_BACKEND_LOCK_TABLE" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan
         id: plan
@@ -160,7 +174,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$TF_BACKEND_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_BACKEND_LOCK_TABLE" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve
@@ -187,7 +207,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$TF_BACKEND_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_BACKEND_LOCK_TABLE" \
+            -backend-config="encrypt=true"
 
       - uses: actions/setup-python@v5
         with:
@@ -229,7 +255,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$TF_BACKEND_BUCKET" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_BACKEND_LOCK_TABLE" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Destroy
         run: terraform destroy -input=false -auto-approve

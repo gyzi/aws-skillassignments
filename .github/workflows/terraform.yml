@@ -3,8 +3,6 @@
 # ──────────────────────────────────────────────────────────────
 #
 # Secrets required in GitHub repository settings:
-#   AWS_ROLE_ARN          – IAM role ARN for GitHub OIDC (preferred)
-#   --- OR (fallback) ---
 #   AWS_ACCESS_KEY_ID     – IAM access key
 #   AWS_SECRET_ACCESS_KEY – IAM secret key
 #
@@ -24,7 +22,6 @@ on:
     branches: [main]
 
 permissions:
-  id-token: write   # for OIDC
   contents: read
   pull-requests: write
 
@@ -66,7 +63,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -93,7 +91,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -143,7 +142,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -169,7 +169,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
@@ -184,7 +185,6 @@ jobs:
 
       - name: Run integration tests
         env:
-          COGNITO_CLIENT_ID: ${{ steps.outputs.outputs.client_id }}
           COGNITO_USERNAME: ${{ secrets.COGNITO_USERNAME }}
           COGNITO_PASSWORD: ${{ secrets.COGNITO_PASSWORD }}
         run: |

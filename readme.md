@@ -1,6 +1,6 @@
-# Multi-Region AI Video Analytics – Terraform IaC
+# Multi-Region Serverless API – Terraform IaC
 
-Production-ready Terraform infrastructure for a multi-region serverless API on AWS with centralized Cognito authentication.
+Terraform infrastructure for a **multi-region serverless API** on AWS with centralized Cognito authentication, Lambda-backed endpoints, DynamoDB persistence, and an ECS Fargate dispatcher — deployed across `us-east-1` and `eu-west-1`.
 
 ## Architecture
 
@@ -45,35 +45,34 @@ Production-ready Terraform infrastructure for a multi-region serverless API on A
 | Python    | ≥ 3.10   | Integration test script              |
 | pip       | latest   | Install `boto3` and `requests`       |
 
-## Quick Start
+---
 
-### 1. Clone & Configure AWS Credentials
+## Setup
+
+### Step 1 – Configure AWS Credentials
 
 ```powershell
-git clone https://github.com/yourusername/aws-assessment.git
-cd aws-assessment
-
 # Configure a named AWS CLI profile
 aws configure --profile myprofile
 $env:AWS_PROFILE = "myprofile"
 ```
 
-### 2. Set Variables
+### Step 2 – Set Variables
 
 ```powershell
-# Copy the example and fill in your values
 Copy-Item terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`:
+Edit `terraform.tfvars` — all three application variables are **required** (no defaults):
+
 ```hcl
-aws_profile = "myprofile"
-email       = "your_email@example.com"
-github_repo = "https://github.com/yourusername/aws-assessment"
-sns_topic_arn = "arn:aws:sns:us-east-1:637226132752:Candidate-Verification-Topic"
+aws_profile   = "myprofile"
+email         = "your_email@example.com"
+github_repo   = "https://github.com/your-org/your-repo"
+sns_topic_arn = "arn:aws:sns:us-east-1:ACCOUNT_ID:TOPIC_NAME"
 ```
 
-### 3. Deploy
+### Step 3 – Deploy Infrastructure
 
 ```powershell
 terraform init
@@ -83,7 +82,7 @@ terraform plan -out=tfplan    # preview changes
 terraform apply tfplan        # deploy
 ```
 
-### 4. Set Cognito Test User Password
+### Step 4 – Set Cognito Test User Password
 
 After the first deploy, set a permanent password for the test user:
 
@@ -96,7 +95,11 @@ aws cognito-idp admin-set-user-password `
   --region us-east-1
 ```
 
-### 5. Run Integration Tests
+---
+
+## Testing
+
+### Automated Integration Tests
 
 ```powershell
 pip install boto3 requests
@@ -110,7 +113,7 @@ $env:API_ENDPOINT_EU_WEST  = "$(terraform output -raw api_endpoint_eu_west)"
 python test_endpoints.py
 ```
 
-### 6. Manual Endpoint Test
+### Manual Endpoint Test
 
 ```powershell
 # Get an ID token
@@ -130,6 +133,8 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
   -Headers @{ Authorization = $token }
 ```
 
+---
+
 ## Project Structure
 
 ```
@@ -140,9 +145,13 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 ├── terraform.tfvars.example        # Example variable values
 ├── test_endpoints.py               # Integration test script
 │
+├── bootstrap/                      # (Optional) OIDC setup for GitHub Actions
+│   └── main.tf                     # IAM OIDC provider + role
+│
 ├── modules/app_stack/              # Reusable per-region module
 │   ├── variables.tf                # Module inputs
 │   ├── outputs.tf                  # Module outputs
+│   ├── providers.tf                # Provider requirements
 │   ├── dynamodb.tf                 # DynamoDB table
 │   ├── iam.tf                      # IAM roles & policies
 │   ├── lambda.tf                   # Lambda functions + archives
@@ -159,19 +168,19 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 
 ## Variables Reference
 
-| Variable             | Required | Default                              | Description                            |
-|----------------------|----------|--------------------------------------|----------------------------------------|
-| `aws_profile`        | No       | `""`                                 | AWS CLI profile name                   |
-| `aws_region_us_east` | No       | `us-east-1`                          | Primary region                         |
-| `aws_region_eu_west` | No       | `eu-west-1`                          | Secondary region                       |
-| `environment`        | No       | `dev`                                | Environment label                      |
-| `email`              | **Yes**  | `pythoncourse358@gmail.com`          | Email for Cognito user & SNS payload   |
-| `github_repo`        | **Yes**  | `https://github.com/user/aws-assessment` | Repo URL for SNS payload         |
-| `sns_topic_arn`      | **Yes**  | Candidate Verification Topic         | SNS topic for verification messages    |
+| Variable             | Required | Default        | Description                            |
+|----------------------|----------|----------------|----------------------------------------|
+| `aws_profile`        | No       | `""`           | AWS CLI profile name                   |
+| `aws_region_us_east` | No       | `us-east-1`    | Primary region                         |
+| `aws_region_eu_west` | No       | `eu-west-1`    | Secondary region                       |
+| `environment`        | No       | `dev`          | Environment label                      |
+| `email`              | **Yes**  | —              | Email for Cognito user & SNS payload   |
+| `github_repo`        | **Yes**  | —              | GitHub repo URL for SNS payload        |
+| `sns_topic_arn`      | **Yes**  | —              | SNS topic ARN for verification messages|
 
 ## CI/CD Pipeline
 
-The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes and PRs to `main`:
+The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes and PRs to `main`. It authenticates to AWS using **static credentials** stored as GitHub Secrets.
 
 | Stage        | Trigger    | What it does                                            |
 |--------------|------------|---------------------------------------------------------|
@@ -183,20 +192,23 @@ The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes a
 
 ### Required GitHub Secrets
 
-| Secret                  | Description                                |
-|-------------------------|--------------------------------------------|
-| `AWS_ROLE_ARN`          | IAM role ARN for GitHub OIDC authentication|
-| `COGNITO_USERNAME`      | Test user username                         |
-| `COGNITO_PASSWORD`      | Test user password                         |
-| `TF_VAR_email`          | Email for SNS payload                      |
-| `TF_VAR_github_repo`    | GitHub repo URL for SNS payload            |
-| `TF_VAR_sns_topic_arn`  | SNS topic ARN                              |
+Add these in your repo **Settings → Secrets and variables → Actions**:
+
+| Secret                  | Description                                 |
+|-------------------------|---------------------------------------------|
+| `AWS_ACCESS_KEY_ID`     | IAM access key for your AWS user            |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key for your AWS user            |
+| `COGNITO_USERNAME`      | Test user username (e.g. `testuser`)        |
+| `COGNITO_PASSWORD`      | Test user password                          |
+| `TF_VAR_email`          | Email for SNS payload                       |
+| `TF_VAR_github_repo`    | GitHub repo URL for SNS payload             |
+| `TF_VAR_sns_topic_arn`  | SNS topic ARN                               |
 
 ## Security Notes
 
 - **Never commit credentials.** Use `AWS_PROFILE` or environment variables.
 - `terraform.tfvars` is gitignored — only `.example` is tracked.
-- Terraform state contains sensitive data. For production, use [S3 remote backend](https://developer.hashicorp.com/terraform/language/backend/s3) with encryption and DynamoDB state locking.
+- Terraform state contains sensitive data. For production, use an [S3 remote backend](https://developer.hashicorp.com/terraform/language/backend/s3) with encryption and DynamoDB state locking.
 - API Gateway routes are protected by Cognito JWT authorizer — unauthenticated requests receive `401 Unauthorized`.
 
 ## Cost Optimisation

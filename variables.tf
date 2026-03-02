@@ -26,22 +26,19 @@ variable "environment" {
   default     = "dev"
 }
 
-# ── Application-specific ────────────────────────────────────
+# ── Application-specific (required – set in terraform.tfvars) ──
 
 variable "email" {
   description = "Email used for the Cognito test user and the SNS verification payload"
   type        = string
-  default     = "pythoncourse358@gmail.com"
 }
 
 variable "github_repo" {
   description = "GitHub repository URL included in the SNS verification payload"
   type        = string
-  default     = "https://github.com/user/aws-assessment"
 }
 
 variable "sns_topic_arn" {
   description = "ARN of the SNS topic that the Greeter Lambda publishes verification messages to"
   type        = string
-  default     = "arn:aws:sns:us-east-1:637226132752:Candidate-Verification-Topic"
 }

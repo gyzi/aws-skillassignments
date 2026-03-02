@@ -185,6 +185,19 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve
 
+      - name: Set Cognito test user password
+        env:
+          COGNITO_USERNAME: ${{ secrets.COGNITO_USERNAME }}
+          COGNITO_PASSWORD: ${{ secrets.COGNITO_PASSWORD }}
+        run: |
+          USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)
+          aws cognito-idp admin-set-user-password \
+            --user-pool-id "$USER_POOL_ID" \
+            --username "$COGNITO_USERNAME" \
+            --password "$COGNITO_PASSWORD" \
+            --permanent \
+            --region "$AWS_REGION"
+
   # ────────────────────────────────────────────────────────────
   # 5. Integration Test – after apply
   # ────────────────────────────────────────────────────────────

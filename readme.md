@@ -180,15 +180,18 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 
 ## CI/CD Pipeline
 
-The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes and PRs to `main`. It authenticates to AWS using **static credentials** stored as GitHub Secrets.
+The GitHub Actions workflow (`.github/workflows/terraform.yml`) runs on pushes, PRs to `main`, and manual triggers. It authenticates to AWS using **static credentials** stored as GitHub Secrets.
 
-| Stage        | Trigger    | What it does                                            |
-|--------------|------------|---------------------------------------------------------|
-| **Lint**     | Always     | `terraform fmt -check -recursive`                       |
-| **Validate** | Always     | `terraform init && terraform validate`                  |
-| **Plan**     | PR only    | `terraform plan` — posts output as PR comment           |
-| **Apply**    | Main only  | `terraform apply -auto-approve` (manual approval gate)  |
-| **Test**     | After apply| Runs `test_endpoints.py` against live endpoints         |
+| Stage        | Trigger        | What it does                                            |
+|--------------|----------------|---------------------------------------------------------|
+| **Lint**     | Always         | `terraform fmt -check -recursive`                       |
+| **Validate** | Always         | `terraform init && terraform validate`                  |
+| **Plan**     | PR only        | `terraform plan` — posts output as PR comment           |
+| **Apply**    | Main push / manual | `terraform apply -auto-approve` (manual approval gate)  |
+| **Test**     | After apply    | Runs `test_endpoints.py` against live endpoints         |
+| **Destroy**  | Manual only    | `terraform destroy -auto-approve` (manual approval gate)|
+
+> **Manual trigger:** Go to **Actions → Terraform CI/CD → Run workflow** and select `apply` or `destroy` from the dropdown.
 
 ### Required GitHub Secrets
 
@@ -208,7 +211,7 @@ Add these in your repo **Settings → Secrets and variables → Actions**:
 
 - **Never commit credentials.** Use `AWS_PROFILE` or environment variables.
 - `terraform.tfvars` is gitignored — only `.example` is tracked.
-- Terraform state contains sensitive data. For production, use an [S3 remote backend](https://developer.hashicorp.com/terraform/language/backend/s3) with encryption and DynamoDB state locking.
+- Terraform state is stored in an encrypted S3 bucket (`aws-skillassignment-tfstate`) with DynamoDB state locking (`aws-skillassignment-tflock`).
 - API Gateway routes are protected by Cognito JWT authorizer — unauthenticated requests receive `401 Unauthorized`.
 
 ## Cost Optimisation

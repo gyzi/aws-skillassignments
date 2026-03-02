@@ -18,6 +18,14 @@ terraform {
       version = "~> 2.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "aws-skillassignment-tfstate"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "aws-skillassignment-tflock"
+    encrypt        = true
+  }
 }
 
 # ── Primary region (us-east-1) – also hosts Cognito ─────────

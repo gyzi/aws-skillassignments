@@ -20,6 +20,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
 
 permissions:
   contents: read
@@ -133,7 +143,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: validate
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
     environment: production          # requires manual approval in GitHub
     steps:
       - uses: actions/checkout@v4
@@ -195,3 +205,31 @@ jobs:
           export API_ENDPOINT_EU_WEST=$(terraform output -raw api_endpoint_eu_west)
           export COGNITO_CLIENT_ID=$(terraform output -raw cognito_user_pool_client_id)
           python test_endpoints.py
+
+  # ────────────────────────────────────────────────────────────
+  # 6. Destroy – manual trigger only
+  # ────────────────────────────────────────────────────────────
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: production          # requires manual approval in GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -input=false -auto-approve

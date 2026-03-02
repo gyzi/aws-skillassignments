@@ -59,7 +59,18 @@ resource "aws_cognito_user" "test_user" {
 }
 
 # ╔══════════════════════════════════════════════════════════╗
-# ║  2. Application Stack – us-east-1                        ║
+# ║  2. SNS Topic  (us-east-1, shared by both regions)      ║
+# ╚══════════════════════════════════════════════════════════╝
+
+resource "aws_sns_topic" "notifications" {
+  provider = aws.us_east_1
+  name     = "app-stack-notifications"
+
+  tags = { Name = "app-stack-notifications" }
+}
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║  3. Application Stack – us-east-1                        ║
 # ╚══════════════════════════════════════════════════════════╝
 
 module "app_us_east" {
@@ -68,7 +79,7 @@ module "app_us_east" {
 
   region                      = var.aws_region_us_east
   environment                 = var.environment
-  sns_topic_arn               = var.sns_topic_arn
+  sns_topic_arn               = aws_sns_topic.notifications.arn
   email                       = var.email
   github_repo                 = var.github_repo
   cognito_user_pool_arn       = aws_cognito_user_pool.central.arn
@@ -77,7 +88,7 @@ module "app_us_east" {
 }
 
 # ╔══════════════════════════════════════════════════════════╗
-# ║  3. Application Stack – eu-west-1                        ║
+# ║  4. Application Stack – eu-west-1                        ║
 # ╚══════════════════════════════════════════════════════════╝
 
 module "app_eu_west" {
@@ -86,7 +97,7 @@ module "app_eu_west" {
 
   region                      = var.aws_region_eu_west
   environment                 = var.environment
-  sns_topic_arn               = var.sns_topic_arn
+  sns_topic_arn               = aws_sns_topic.notifications.arn
   email                       = var.email
   github_repo                 = var.github_repo
   cognito_user_pool_arn       = aws_cognito_user_pool.central.arn

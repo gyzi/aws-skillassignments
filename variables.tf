@@ -37,8 +37,3 @@ variable "github_repo" {
   description = "GitHub repository URL included in the SNS verification payload"
   type        = string
 }
-
-variable "sns_topic_arn" {
-  description = "ARN of the SNS topic that the Greeter Lambda publishes verification messages to"
-  type        = string
-}

@@ -60,6 +60,7 @@ You can deploy **locally from the CLI** or **automatically via GitHub Actions CI
 **1. Create the remote state backend** (S3 bucket + DynamoDB lock table):
 
 ```powershell
+# Bucket names must be lowercase, globally unique
 aws s3api create-bucket --bucket YOUR_BUCKET_NAME --region us-east-1
 aws s3api put-bucket-versioning --bucket YOUR_BUCKET_NAME --versioning-configuration Status=Enabled
 aws dynamodb create-table --table-name YOUR_LOCK_TABLE `
@@ -93,7 +94,6 @@ Edit `terraform.tfvars`:
 aws_profile   = "myprofile"
 email         = "your_email@example.com"
 github_repo   = "https://github.com/your-org/your-repo"
-sns_topic_arn = "arn:aws:sns:us-east-1:ACCOUNT_ID:TOPIC_NAME"
 ```
 
 **3. Init, plan, and apply:**
@@ -145,7 +145,6 @@ The pipeline runs **automatically** on push/PR to `main`. You can also **manuall
 | `TF_BACKEND_LOCK_TABLE`   | Your DynamoDB lock table name               |
 | `TF_VAR_email`            | Your email address                          |
 | `TF_VAR_github_repo`      | Your GitHub repo URL                        |
-| `TF_VAR_sns_topic_arn`    | SNS topic ARN                               |
 | `COGNITO_USERNAME`        | `testuser`                                  |
 | `COGNITO_PASSWORD`        | Password for the test user                  |
 
@@ -240,7 +239,6 @@ Invoke-RestMethod -Method Post -Uri "$api/greet" `
 | `environment`        | No       | `dev`          | Environment label                      |
 | `email`              | **Yes**  | —              | Email for Cognito user & SNS payload   |
 | `github_repo`        | **Yes**  | —              | GitHub repo URL for SNS payload        |
-| `sns_topic_arn`      | **Yes**  | —              | SNS topic ARN for verification messages|
 
 ## Security Notes
 

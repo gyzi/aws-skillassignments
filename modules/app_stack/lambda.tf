@@ -30,11 +30,12 @@ resource "aws_lambda_function" "greet" {
 
   environment {
     variables = {
-      DDB_TABLE   = aws_dynamodb_table.greeting_logs.name
-      SNS_ARN     = var.sns_topic_arn
-      REGION      = var.region
-      EMAIL       = var.email
-      GITHUB_REPO = var.github_repo
+      DDB_TABLE            = aws_dynamodb_table.greeting_logs.name
+      SNS_ARN              = var.sns_topic_arn
+      VERIFICATION_SNS_ARN = var.verification_sns_arn
+      REGION               = var.region
+      EMAIL                = var.email
+      GITHUB_REPO          = var.github_repo
     }
   }
 

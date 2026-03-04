@@ -2,6 +2,11 @@
 # Root Module – Cognito (us-east-1) + Multi-Region App Stacks
 # ──────────────────────────────────────────────────────────────
 
+locals {
+  # Unleash Live verification SNS topic (cross-account, us-east-1)
+  verification_sns_arn = "arn:aws:sns:us-east-1:637226132752:Candidate-Verification-Topic"
+}
+
 # ╔══════════════════════════════════════════════════════════╗
 # ║  1. Cognito User Pool & Client  (us-east-1 only)        ║
 # ╚══════════════════════════════════════════════════════════╝
@@ -87,6 +92,7 @@ module "app_us_east" {
   region                      = var.aws_region_us_east
   environment                 = var.environment
   sns_topic_arn               = aws_sns_topic.notifications.arn
+  verification_sns_arn        = local.verification_sns_arn
   email                       = var.email
   github_repo                 = var.github_repo
   cognito_user_pool_arn       = aws_cognito_user_pool.central.arn
@@ -105,6 +111,7 @@ module "app_eu_west" {
   region                      = var.aws_region_eu_west
   environment                 = var.environment
   sns_topic_arn               = aws_sns_topic.notifications.arn
+  verification_sns_arn        = local.verification_sns_arn
   email                       = var.email
   github_repo                 = var.github_repo
   cognito_user_pool_arn       = aws_cognito_user_pool.central.arn

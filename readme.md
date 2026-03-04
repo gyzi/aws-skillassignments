@@ -150,14 +150,15 @@ The pipeline runs **automatically** on push/PR to `main`. You can also **manuall
 
 **2. Pipeline stages:**
 
-| Stage        | Trigger            | What it does                                        |
-|--------------|--------------------|-----------------------------------------------------|
-| **Lint**     | Every push/PR      | `terraform fmt -check -recursive`                   |
-| **Validate** | Every push/PR      | `terraform init && terraform validate`              |
-| **Plan**     | PR only            | `terraform plan` — posts output as PR comment       |
-| **Apply**    | Push to main       | `terraform apply -auto-approve`                     |
-| **Test**     | After apply        | Runs `test_endpoints.py` against live endpoints     |
-| **Destroy**  | Manual only        | `terraform destroy -auto-approve`                   |
+| Stage            | Trigger            | What it does                                        |
+|------------------|--------------------|-----------------------------------------------------|
+| **Lint**         | Every push/PR      | `terraform fmt -check -recursive`                   |
+| **Security Scan**| Every push/PR      | Static analysis via `tfsec` (soft-fail)             |
+| **Validate**     | Every push/PR      | `terraform init && terraform validate`              |
+| **Plan**         | PR only            | `terraform plan` — posts output as PR comment       |
+| **Apply**        | Push to main       | `terraform apply -auto-approve`                     |
+| **Test**         | After apply        | Runs `test_endpoints.py` against live endpoints     |
+| **Destroy**      | Manual only        | `terraform destroy -auto-approve`                   |
 
 **3. Manual trigger:** Go to **Actions → Terraform CI/CD → Run workflow** and select `apply` or `destroy`.
 

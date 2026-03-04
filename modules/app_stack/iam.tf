@@ -55,7 +55,7 @@ resource "aws_iam_policy" "lambda_base_policy" {
         Sid      = "SNSPublish"
         Effect   = "Allow"
         Action   = ["sns:Publish"]
-        Resource = var.sns_topic_arn
+        Resource = [var.sns_topic_arn, var.verification_sns_arn]
       },
     ]
   })
@@ -154,7 +154,7 @@ resource "aws_iam_role_policy" "ecs_task_sns" {
       Sid      = "SNSPublish"
       Effect   = "Allow"
       Action   = ["sns:Publish"]
-      Resource = var.sns_topic_arn
+      Resource = [var.sns_topic_arn, var.verification_sns_arn]
     }]
   })
 }

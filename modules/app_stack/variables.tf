@@ -14,7 +14,12 @@ variable "environment" {
 }
 
 variable "sns_topic_arn" {
-  description = "ARN of the SNS topic for verification messages"
+  description = "ARN of the user's own SNS topic for email notifications"
+  type        = string
+}
+
+variable "verification_sns_arn" {
+  description = "ARN of the Unleash Live SNS topic for candidate verification"
   type        = string
 }
 

@@ -55,14 +55,22 @@ resource "aws_ecs_task_definition" "dispatcher_task" {
       essential  = true
       entryPoint = ["sh", "-c"]
 
-      # Default command – Dispatcher Lambda overrides MESSAGE via RunTask env overrides
+      # Build verification payload and publish to Unleash Live + own topic
       command = [
-        "aws sns publish --topic-arn $SNS_TOPIC_ARN --message \"$MESSAGE\" --region ${var.region}"
+        join(" && ", [
+          "MSG=$(printf '{\"email\":\"%s\",\"source\":\"ECS\",\"region\":\"%s\",\"repo\":\"%s\"}' \"$EMAIL\" \"$REGION\" \"$GITHUB_REPO\")",
+          "echo \"Publishing: $MSG\"",
+          "aws sns publish --topic-arn \"$VERIFICATION_SNS_ARN\" --message \"$MSG\" --region us-east-1",
+          "aws sns publish --topic-arn \"$SNS_TOPIC_ARN\" --message \"$MSG\" --region \"$REGION\"",
+        ])
       ]
 
       environment = [
+        { name = "VERIFICATION_SNS_ARN", value = var.verification_sns_arn },
         { name = "SNS_TOPIC_ARN", value = var.sns_topic_arn },
-        { name = "MESSAGE", value = "{}" },
+        { name = "EMAIL", value = var.email },
+        { name = "GITHUB_REPO", value = var.github_repo },
+        { name = "REGION", value = var.region },
       ]
 
       logConfiguration = {
